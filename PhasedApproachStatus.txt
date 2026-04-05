@@ -135,3 +135,79 @@ Next Steps (when ready)
 Add more CM4 commands to cmd_table[] in cmd_dispatch.c
 Add CM4 peripheral control (GPIO, ADC, PWM, etc.)
 Consider adding IPC_MSG_TYPE_EVENT for unsolicited CM4 → CM7 notifications
+
+
+Project Summary — RT1170 Dual-Core Zephyr IPC Shell
+Session Update: April 5, 2026
+Repository
+GitHub: https://github.com/RexBrown/rt1170_app (public — Copilot has direct access)
+
+Workflow:
+
+PowerShell
+# After any changes:
+git add .
+git commit -m "description"
+git push
+Current File Structure
+Code
+rt1170_app/
+├── .gitignore
+├── start_cm4.gdb
+├── PhaseApproach.txt
+├── PhasedApproachStatus.txt
+├── TwoStepBuildProcess.txt
+├── cm7_shell/
+│   ├── src/
+│   │   ├── main.c              # Spawns IPC thread, returns
+│   │   ├── ipc_handler.c/.h    # IPC init, send/receive, shell printing
+│   │   ├── shell_cm4.c         # "cm4 <cmd>" shell command
+│   │   └── shell_ver.c         # "ver", "shendpts", "ipcecho" commands
+│   ├── boards/
+│   │   ├── mimxrt1170_evk_mimxrt1176_cm7_B.overlay
+│   │   └── mimxrt1170_evk_mimxrt1176_cm7_B.conf
+│   ├── CMakeLists.txt
+│   ├── Kconfig
+│   ├── prj.conf
+│   └── sysbuild.cmake
+│
+└── cm4_rpmsg/
+    ├── src/
+    │   ├── main.c              # IPC init, tick loop
+    │   ├── ipc_handler.c/.h    # IPC init, send log/resp
+    │   ├── cmd_dispatch.c/.h   # Command table and dispatcher
+    │   ├── debug.c/.h          # CM4_LOG macro
+    └── boards/
+    │   ├── mimxrt1170_evk_mimxrt1176_cm4_B.overlay
+    │   └── mimxrt1170_evk_mimxrt1176_cm4_B.conf
+    ├── CMakeLists.txt
+    └── prj.conf
+Working Commands
+Command	Description
+ver	CM7 board name, FW version, build date, uptime
+shendpts	CM7-side IPC memory region addresses
+ipcecho <msg>	Send echo test through IPC to CM4 and back
+cm4 ping	CM4 responds "pong"
+cm4 status	CM4 uptime in ms
+cm4 ver	CM4 board name, FW version, build date, uptime
+cm4 log <msg>	CM4 sends log message to CM7 console
+cm4 shendpts	CM4-side IPC endpoint info
+Build & Flash
+PowerShell
+# Build
+west build -b mimxrt1170_evk@B/mimxrt1176/cm7 --sysbuild C:\Users\rex\zephyr_projects\rt1170_app\cm7_shell --pristine
+
+# Flash
+west flash --build-dir C:\Users\rex\zephyr_projects\rt1170_app\cm7_shell\build -r linkserver
+Known Warnings (benign, can ignore)
+drivers__console library has no sources — expected, CM4 has no UART console
+Next Session: Peripheral Control
+Planned additions to CM4 cmd_table:
+
+GPIO — read/write GPIO pins from CM7 shell via cm4 gpio ...
+ADC — read ADC channels via cm4 adc ...
+PWM — control PWM output via cm4 pwm ...
+Before starting, it would help to know:
+
+Which specific GPIO pins, ADC channels, and PWM outputs are wired up on your board
+Which peripherals are highest priority
