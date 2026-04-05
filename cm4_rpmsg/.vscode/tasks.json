@@ -1,0 +1,33 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build CM4",
+            "type": "shell",
+            "command": "west build -b \"mimxrt1170_evk@B/mimxrt1176/cm4\" .",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash CM4 EVKB",
+            "type": "shell",
+            "command": "& 'C:\\nxp\\LinkServer_24.12.21\\Linkserver.exe' flash MIMXRT1176xxxxx:MIMXRT1170-EVKB load ${workspaceFolder}/build/zephyr/zephyr.bin --core cm4 --addr 0x20200000 --erase-all",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

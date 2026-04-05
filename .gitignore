@@ -1,0 +1,22 @@
+﻿# Build output
+cm7_shell/build/
+cm4_rpmsg/build/
+
+# Python virtual environment
+.venv/
+
+# West workspace metadata
+.west/
+
+# IDE files
+.settings/
+.launches/
+.cproject
+.project
+*.launch
+
+# Build logs and scratch output
+command1_output.txt
+build_log.txt
+*.log
+cm7_shell/output.txt

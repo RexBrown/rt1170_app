@@ -1,0 +1,70 @@
+﻿Great context. Let me look at the current CM7 and CM4 source code before designing anything:Good, let me work from first principles. Here's the full design proposal before writing any code:
+
+Phase 2 & 3 Combined Design
+IPC Message Structure
+A single RPMsg endpoint with a msg_type field handles all traffic:
+
+ipc_message.h
+    #define IPC_MSG_TYPE_LOG     0x01  // CM4 -> CM7: log output
+    #define IPC_MSG_TYPE_CMD     0x02  // CM7 -> CM4: shell command
+    #define IPC_MSG_TYPE_RESP    0x03  // CM4 -> CM7: command response
+
+    #define IPC_MAX_PAYLOAD      224   // keeps total msg under 256 bytes
+
+    typedef struct {
+        uint8_t  msg_type;
+        uint8_t  reserved[3];
+        uint32_t timestamp_ms;
+        char     payload[IPC_MAX_PAYLOAD];
+    } ipc_message_t;
+
+
+Phase 2 — CM4 → CM7 Logging
+CM4 side — Debug logging macros:
+
+C
+    // Module index into DebugBits[]
+    // DebugMask (32-bit) - one bit per module
+    // DebugLevel 0-3 verbosity
+
+    #define DBG_MSK_LVL_BEGIN(m, l) \
+        if ((DebugLevel >= (l)) && (DebugMask & DebugBits[m].dbgBit)) {
+    #define DBG_END }
+
+    // Sends formatted string via IPC as MSG_TYPE_LOG
+    // Format: [CM4] [timestamp] message
+    void ipc_log_send(const char *fmt, ...);
+    
+CM7 side — receives MSG_TYPE_LOG, prints via LOG_INF or directly to shell console.
+
+Phase 3 — Bidirectional Shell Commands
+CM7 side — shell command handler:
+
+C
+    // Sends MSG_TYPE_CMD with command string to CM4
+    // Waits (with timeout) for MSG_TYPE_RESP
+    // Prints response to shell
+    SHELL_CMD_REGISTER(cm4, ...)
+
+CM4 side — command dispatcher:
+
+C
+    // Receives MSG_TYPE_CMD
+    // Parses command string
+    // Executes handler
+    // Sends MSG_TYPE_RESP back
+    
+Now I have everything needed. Here's the complete Phase 2+3 implementation:
+
+New file layout:
+
+cm7_shell/src/main.c          -- fixed + CMD sender + LOG receiver
+cm7_shell/src/ipc_handler.c   -- IPC send/receive dispatcher
+cm7_shell/src/ipc_handler.h   -- shared message types (copy to cm4 too)
+cm7_shell/src/shell_cm4.c     -- CM7 shell "cm4" command
+
+cm4_rpmsg/src/main.c          -- fixed + CMD receiver + LOG sender
+cm4_rpmsg/src/ipc_handler.c   -- IPC send/receive dispatcher
+cm4_rpmsg/src/debug.c         -- DebugMask/DebugLevel + ipc_log_send()
+cm4_rpmsg/src/debug.h         -- DBG_MSK_LVL_BEGIN / DBG_END macros
+

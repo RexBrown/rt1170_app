@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build CM7",
+            "type": "shell",
+            "command": "west build -b \"mimxrt1170_evk@B/mimxrt1176/cm7\" .",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash EVKB",
+            "type": "shell",
+            "command": "& 'C:\\nxp\\LinkServer_24.12.21\\Linkserver.exe' flash MIMXRT1176xxxxx:MIMXRT1170-EVKB load ${workspaceFolder}/build/zephyr/zephyr.bin --addr 0x30000000 --erase-all",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build and Flash CM7",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Build CM7", "Flash EVKB"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Pristine Build CM7",
+            "type": "shell",
+            "command": "west build -b \"mimxrt1170_evk@B/mimxrt1176/cm7\" . --pristine",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

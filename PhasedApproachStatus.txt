@@ -1,0 +1,137 @@
+﻿
+Suggested Build Order / Phases
+Phase	What to Build	Validates
+1	CM7 shell on LPUART2	Console works
+2	CM4 → CM7 RPMSG logging	IPC backbone works
+3	CM7 → CM4 shell commands	Bidirectional IPC
+4	FatFS on SD card + shell cmds	File system works
+5	Ethernet + Modbus/HTTP	Networking stack
+6	LVGL display + touch	GUI works
+7	PackML shared RAM structure	Full integration
+
+
+Phase 1 is complete and working! 🎉
+
+The shell is running — you can see the prompt rt1170:~$ and the log message. Two small notes:
+
+The log says LPUART2 in the message text but it's actually running on LPUART1 (COM7) — that's
+    just the string we hardcoded in main.c, not the actual UART being used. We can fix that
+    cosmetically later.
+The boot messages appearing after the prompt is normal — the shell starts slightly before
+    the log backend flushes. Not a problem.
+
+Phase 1 Summary ✅
+What	                        Status
+Shell running on LPUART1/COM7	✅
+Boot log messages visible	    ✅
+Shell prompt rt1170:~$	        ✅
+Build system working	        ✅
+Flash via LinkServer working	✅
+
+Ready for Phase 2?
+The next step is CM4 → CM7 RPMSG logging — getting the CM4 core running and routing its log
+    messages over to the CM7 shell. This is the backbone of your entire architecture.
+
+Now Phase 2 — CM4 RPMSG Logging
+
+Copilot said: **It's working perfectly.** Both cores are up
+It's working perfectly. Both cores are up and communicating:
+
+✅ CM7 boots on LPUART1 (COM7), shell is running
+✅ CM4 boots and its UART appears on COM3
+✅ IPC endpoint binds successfully — CM4 is up
+✅ RPMsg ticks arriving every ~5 seconds from CM4 to CM7
+✅ Zephyr shell (uart:~$) is fully functional on CM7
+The only thing to note is the duplicate log lines (CM4 tick: N appearing twice each time) — that's a minor issue in your CM7 IPC callback being registered or triggered twice, worth looking at when you move beyond the bring-up phase.
+
+But the dual-core sysbuild setup is solid. To summarize what ended up being the fix:
+
+CONFIG_BUILD_OUTPUT_HEX=y on CM7 to generate the hex
+set_config_bool(cm7_shell CONFIG_SECOND_CORE_MCUX 1) in sysbuild.cmake
+CMAKE_CURRENT_BINARY_DIR in sysbuild context is build/_sysbuild, so the correct CM4 header path is ${CMAKE_CURRENT_BINARY_DIR}/../cm4_rpmsg/zephyr/include/public
+Flash CM4 first, then CM7
+
+Current Status as of 20260402 1800:
+
+RT1170 Dual-Core Zephyr Project — Status Summary
+✅ Completed
+Sysbuild structure — CM7 (cm7_shell) as primary image, CM4 (cm4_rpmsg) as secondary image, both built from a single west build command using sysbuild.cmake
+
+CM4 boot — CM7 correctly copies CM4 segments from flash (0x3072xxxx) to OCRAM at runtime via imxrt_init, then releases CM4 reset
+
+RPMsg IPC — CM4 and CM7 are communicating over RPMsg/OpenAMP. CM4 ticks are arriving at CM7 every ~5 seconds
+
+Zephyr shell — Running on CM7 (LPUART1, COM7)
+
+Flash workflow — Both hex files flashed via LinkServer (west flash from sysbuild build dir)
+
+⚠️ Known Minor Issue
+Duplicate log lines — CM4 tick: N prints twice on CM7. Likely the IPC callback or endpoint binding is being registered twice in CM7 application code
+🔲 Presumably Still Ahead
+Expanding CM7 shell commands
+Expanding CM4 functionality beyond tick demo
+Production IPC message design (beyond simple tick)
+Any additional peripherals, RTOS tasks, power management, etc.
+
+04/04/2026:14:15
+Copilot said: ## Project Summary — RT1170 Dual-Core Zephyr
+Project Summary — RT1170 Dual-Core Zephyr IPC Shell
+Hardware
+Board: MIMXRT1170-EVK (revision B)
+CM7: mimxrt1170_evk@B/mimxrt1176/cm7
+CM4: mimxrt1170_evk@B/mimxrt1176/cm4
+COM Port Mapping
+Port	Device	Direction	Purpose
+COM7	MCU-Link VCom	TX only	CM7 log output (LPUART1)
+COM3	CP210x on J9	Bidirectional	CM7 interactive shell (LPUART2)
+J9 wiring: Pin 1=GND, Pin 2=RX, Pin 4=TX
+
+Project Structure
+Code
+rt1170_app/
+├── cm7_shell/                          # CM7 - host core, runs Zephyr shell
+│   ├── src/
+│   │   ├── main.c                      # Spawns IPC thread, returns immediately
+│   │   ├── ipc_handler.c/.h            # IPC init, send/receive, shell printing
+│   │   └── shell_cmd.c                 # Zephyr shell "cm4" command
+│   ├── boards/
+│   │   └── mimxrt1170_evk_mimxrt1176_cm7_B.overlay  # LPUART1=console, LPUART2=shell, IPC host
+│   └── prj.conf                        # SHELL, LOG, IPC, UART_CONSOLE enabled
+│
+└── cm4_rpmsg/                          # CM4 - remote core, command executor
+    ├── src/
+    │   ├── main.c                      # IPC init, then tick loop (CM4_LOG every 5s)
+    │   ├── ipc_handler.c/.h            # IPC init, send log/resp
+    │   ├── cmd_dispatch.c/.h           # Command table, dispatcher
+    │   └── debug.h                     # CM4_LOG macro
+    ├── boards/
+    │   ├── mimxrt1170_evk_mimxrt1176_cm4_B.overlay  # No UART, IPC remote
+    │   └── mimxrt1170_evk_mimxrt1176_cm4_B.conf
+    └── prj.conf                        # IPC, LOG, no UART_CONSOLE
+Key Design Decisions
+main() on CM7 returns immediately — IPC wait is in a separate preemptible thread so the shell initializes fully
+CM4 has no UART — all output goes over IPC to the CM7 shell
+IPC uses RPMsg/OpenAMP over shared OCRAM2 (two 32KB regions)
+CM7 is host (role = "host"), CM4 is remote (role = "remote")
+IPC Message Types
+Type	Direction	Purpose
+IPC_MSG_TYPE_CMD	CM7 → CM4	Shell command string
+IPC_MSG_TYPE_RESP	CM4 → CM7	Command response
+IPC_MSG_TYPE_LOG	CM4 → CM7	CM4 log messages
+CM4 Commands Implemented
+Command	Response
+cm4 ping	pong
+cm4 status	CM4 uptime: XXXX ms
+Build & Flash
+PowerShell
+# Build
+west build -b mimxrt1170_evk@B/mimxrt1176/cm7 --sysbuild C:\Users\rex\zephyr_projects\rt1170_app\cm7_shell --pristine
+
+# Flash
+west flash --build-dir C:\Users\rex\zephyr_projects\rt1170_app\cm7_shell\build -r linkserver
+Tera Term Settings
+COM3, 115200 baud, local echo OFF
+Next Steps (when ready)
+Add more CM4 commands to cmd_table[] in cmd_dispatch.c
+Add CM4 peripheral control (GPIO, ADC, PWM, etc.)
+Consider adding IPC_MSG_TYPE_EVENT for unsolicited CM4 → CM7 notifications
