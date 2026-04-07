@@ -1,0 +1,6 @@
+﻿config MODULE_PACKTAG
+    bool "PackML/PackTag parameter store"
+    default n
+    help
+      Enables the PackML/PackTag shared parameter store.
+      CM7 owns the master copy; CM4 uses a working copy in shared RAM.
