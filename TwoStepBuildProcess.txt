@@ -4,6 +4,19 @@ west build -b mimxrt1170_evk@B/mimxrt1176/cm7 --sysbuild C:\Users\rex\zephyr_pro
 # FLASH Process (flashes each core separately, CM4 first)
 # Flash CM4 image first
 west flash --build-dir C:\Users\rex\zephyr_projects\rt1170_app\cm7_shell\build\cm4_rpmsg -r linkserver
+changed to:
+west flash --build-dir C:\Users\rex\zephyr_projects\rt1170_app\build\cm4_rpmsg -r linkserver
 
 # Then flash CM7 image
 west flash --build-dir C:\Users\rex\zephyr_projects\rt1170_app\cm7_shell\build\cm7_shell -r linkserver
+changed to:
+C:\Users\rex\zephyr_projects\rt1170_app\build\cm7_shell
+
+Key takeaways for future multi-core Zephyr/NXP work:
+Always flash from the root build/cm4_rpmsg and build/cm7_shell dirs (not per-app build dirs) when using sysbuild.
+If you see “no work to do” and no “Erasing”/“Programming”/“Success” log lines, use --erase or another tool and verify artifact freshness.
+When debugging a non-booting or “no output” board:
+Try “hello_world” sample to verify toolchain/hardware.
+Reset to a known-good branch/base.
+Always clean build outputs (build/) between experiments.
+Device tree overlay misconfiguration, prj.conf errors, or CMake path issues are the top causes of “no output” in dual-core Zephyr projects.
